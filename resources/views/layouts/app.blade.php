@@ -165,7 +165,7 @@
             <div class="flex items-center gap-3">
                 @can('sales.create')
                     <a href="{{ route('sales.create') }}"
-                       class="hidden sm:inline-flex items-center gap-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition">
+                        class="hidden sm:inline-flex items-center gap-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition">
                         ➕ Nouvelle vente
                     </a>
                 @endcan

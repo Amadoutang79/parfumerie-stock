@@ -23,10 +23,31 @@
         {{-- Produits --}}
         <div class="lg:col-span-2 space-y-4">
             <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                <label class="mb-2 block text-sm font-semibold text-slate-800" for="product-search">Choisir un parfum</label>
-                <input id="product-search" type="search" x-model="search" placeholder="Nom, référence ou code-barres…"
+                <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <label class="block text-sm font-semibold text-slate-800" for="product-search">Choisir un parfum</label>
+                    <button type="button" @click="startScanner()" :disabled="scannerActive"
+                            class="rounded-lg bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50">
+                        Scanner avec la caméra
+                    </button>
+                </div>
+                <input id="product-search" x-ref="productSearch" type="search" x-model="search"
+                       @keydown.enter.prevent="addScannedProduct(search)"
+                       placeholder="Nom, référence ou code-barres…"
                        class="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500">
                 <p class="mt-2 text-xs text-slate-500"><span x-text="filtered.length"></span> parfum(s) disponible(s) · Cliquez sur une fiche pour l’ajouter au panier.</p>
+                <p class="mt-1 text-xs text-slate-500">Vous pouvez aussi utiliser une douchette USB : scannez le code dans ce champ.</p>
+                <p x-show="scannerMessage" x-text="scannerMessage" role="status" aria-live="polite"
+                   class="mt-2 text-sm font-medium text-emerald-700"></p>
+                <p x-show="scannerError" x-text="scannerError" role="alert"
+                   class="mt-2 text-sm font-medium text-rose-700"></p>
+                <div x-show="scannerActive" x-cloak class="mt-4 space-y-3">
+                    <video x-ref="scannerVideo" autoplay muted playsinline
+                           class="max-h-64 w-full rounded-lg bg-slate-900 object-contain"></video>
+                    <button type="button" @click="stopScanner()"
+                            class="rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200">
+                        Arrêter le scanner
+                    </button>
+                </div>
             </div>
 
             <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 max-h-[70vh] overflow-y-auto pr-1">
@@ -154,6 +175,12 @@ function pos() {
         products: @json($posProducts),
         search: '',
         cart: [],
+        scannerActive: false,
+        scannerError: '',
+        scannerMessage: '',
+        scannerStream: null,
+        barcodeDetector: null,
+        scannerFrame: null,
         discount: 0,
         vatRate: @js((float) $settings->vat_rate),
         currencySymbol: @js($settings->currency_symbol),
@@ -199,6 +226,102 @@ function pos() {
                 this.cart.push({ id: p.id, name: p.name, price: p.price, qty: 1, max: p.stock_quantity });
             }
         },
+        async startScanner() {
+            this.scannerError = '';
+            this.scannerMessage = '';
+            const Detector = window.BarcodeDetector;
+
+            if (!Detector || !navigator.mediaDevices?.getUserMedia) {
+                this.scannerError = 'Le scan caméra n’est pas pris en charge par ce navigateur. Utilisez une douchette USB dans le champ de recherche.';
+                return;
+            }
+
+            try {
+                const formats = await Detector.getSupportedFormats();
+                const supportedFormats = ['code_128', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'itf']
+                    .filter(format => formats.includes(format));
+
+                if (supportedFormats.length === 0) {
+                    this.scannerError = 'Aucun format de code-barres compatible. Utilisez une douchette USB dans le champ de recherche.';
+                    return;
+                }
+
+                this.barcodeDetector = new Detector({ formats: supportedFormats });
+                this.scannerStream = await navigator.mediaDevices.getUserMedia({
+                    audio: false,
+                    video: { facingMode: { ideal: 'environment' } },
+                });
+                this.scannerActive = true;
+                await this.$nextTick();
+                this.$refs.scannerVideo.srcObject = this.scannerStream;
+                await this.$refs.scannerVideo.play();
+                this.scanFrame();
+            } catch {
+                this.scannerError = 'Impossible d’ouvrir la caméra. Vérifiez son autorisation et réessayez, ou utilisez une douchette USB.';
+                this.stopScanner();
+            }
+        },
+        async scanFrame() {
+            if (!this.scannerActive || !this.barcodeDetector) return;
+
+            if (this.$refs.scannerVideo.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA) {
+                try {
+                    const detections = await this.barcodeDetector.detect(this.$refs.scannerVideo);
+                    if (!this.scannerActive) return;
+                    if (detections.length > 0) {
+                        const barcode = detections[0].rawValue;
+                        this.stopScanner();
+                        this.addScannedProduct(barcode);
+                        return;
+                    }
+                } catch {
+                    this.scannerError = 'La lecture du code-barres a échoué. Réessayez ou utilisez une douchette USB.';
+                    this.stopScanner();
+                    return;
+                }
+            }
+
+            this.scannerFrame = requestAnimationFrame(() => this.scanFrame());
+        },
+        stopScanner() {
+            this.scannerActive = false;
+            this.barcodeDetector = null;
+            if (this.scannerFrame !== null) cancelAnimationFrame(this.scannerFrame);
+            this.scannerFrame = null;
+            this.scannerStream?.getTracks().forEach(track => track.stop());
+            this.scannerStream = null;
+            if (this.$refs.scannerVideo) this.$refs.scannerVideo.srcObject = null;
+        },
+        addScannedProduct(value) {
+            const code = value.trim().toLowerCase();
+            if (!code) return;
+
+            const product = this.products.find(p =>
+                (p.barcode || '').toLowerCase() === code ||
+                (p.reference || '').toLowerCase() === code
+            );
+            this.search = '';
+
+            if (!product) {
+                this.scannerMessage = '';
+                this.scannerError = `Aucun parfum ne correspond au code « ${value.trim()} ».`;
+                this.$nextTick(() => this.$refs.productSearch.focus());
+                return;
+            }
+
+            const existing = this.cart.find(item => item.id === product.id);
+            if (product.stock_quantity <= 0 || (existing && existing.qty >= existing.max)) {
+                this.scannerMessage = '';
+                this.scannerError = `Stock insuffisant pour ${product.name}.`;
+                this.$nextTick(() => this.$refs.productSearch.focus());
+                return;
+            }
+
+            this.scannerError = '';
+            this.add(product);
+            this.scannerMessage = `${product.name} ajouté au panier.`;
+            this.$nextTick(() => this.$refs.productSearch.focus());
+        },
         inc(i) {
             const item = this.cart[i];
             if (item.qty < item.max) item.qty++;
@@ -211,6 +334,7 @@ function pos() {
 
         fmt(v) { return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(v) + ' ' + this.currencySymbol; },
         prepareSubmit(e) {
+            this.stopScanner();
             if (this.cart.length === 0 || this.discount > this.subtotal) { e.preventDefault(); }
         }
     }

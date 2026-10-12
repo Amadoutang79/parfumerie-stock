@@ -11,7 +11,17 @@
 
 Les administrateurs peuvent ouvrir `/settings` depuis le menu latéral ou le menu utilisateur. La page permet de modifier les coordonnées de l’entreprise, la devise, la TVA, le fuseau horaire, le format de date, les notifications par email, le logo et la couleur principale. Les paramètres sont partagés dans les vues et mis en cache pendant une heure.
 
-Les ventes enregistrent le taux et le montant de TVA appliqués au moment de leur création, afin que les tickets conservent leur calcul historique. Les logos acceptés sont JPG, PNG, GIF et WEBP (2 Mo maximum) ; pour les rendre accessibles publiquement, exécutez `php artisan storage:link`.
+Les ventes enregistrent le taux et le montant de TVA appliqués au moment de leur création, afin que les tickets conservent leur calcul historique. Après une vente, le ticket imprimable s’ouvre automatiquement avec le nom et le logo enregistrés dans les paramètres de l’entreprise. Les logos acceptés sont JPG, PNG, GIF et WEBP (5 Mo maximum) ; la configuration PHP du serveur autorise jusqu’à 8 Mo pour les fichiers envoyés. Pour les rendre accessibles publiquement, exécutez `php artisan storage:link`.
+
+La caisse permet d’ajouter un produit en scannant son code-barres avec la caméra ou une douchette USB ; cette dernière fonctionne dans le champ de recherche et ajoute le produit au panier après le scan.
+
+## Déploiement sur Render
+
+Le dépôt inclut un `Dockerfile` PHP 8.4/Apache qui compile les ressources Vite pendant la construction, un script de démarrage qui adapte Apache au port Render et exécute les migrations, ainsi qu’un `render.yaml` pour le service web et PostgreSQL. Dans Render, créez un Blueprint à partir du dépôt GitHub et de la branche `main`. Après la création du service, renseignez `APP_URL` avec l’URL HTTPS attribuée par Render. `APP_KEY` est générée par le Blueprint et `DATABASE_URL` est liée à la base PostgreSQL.
+
+Les images de produits et le logo sont enregistrés sur le disque local Laravel : ils seront perdus lors d’un redéploiement ou du remplacement de l’instance Render. Avant une utilisation en production, configurez un stockage d’objets persistant compatible S3/Cloudinary et effectuez la migration des images existantes. La base de données conserve les données métier, mais ne conserve pas les fichiers téléversés.
+
+Le premier démarrage exécute `php artisan migrate --force`. Vérifiez l’état des migrations et la sauvegarde PostgreSQL avant tout retour arrière ou changement de schéma. Le plan gratuit Render peut être soumis à des limites de ressources et de durée de conservation ; vérifiez les conditions en vigueur dans votre compte Render.
 
 Le catalogue permet de préciser la concentration d’un parfum (EDT, EDP, extrait, Cologne ou brume). Les réceptions et entrées manuelles peuvent identifier chaque lot et sa date d’expiration ; les ventes consomment en priorité les lots non expirés les plus proches de leur date limite. Le suivi est accessible depuis **Stock → Suivi des lots**. Les quantités déjà en stock sont reprises dans des lots d’ouverture lors de la migration.
 

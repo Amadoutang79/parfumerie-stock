@@ -38,8 +38,12 @@ class SettingController extends Controller
             'primary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/D'],
             'invoice_email' => ['nullable', 'email', 'max:255'],
             'email_notifications' => ['required', 'boolean'],
-            'logo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,gif,webp', 'max:2048'],
+            'logo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,gif,webp', 'max:5120'],
             'tab' => ['nullable', Rule::in(['information', 'preferences', 'appearance'])],
+        ], [
+            'logo.uploaded' => 'Le téléversement du logo a échoué. Choisissez une image de 5 Mo maximum et réessayez.',
+            'logo.mimes' => 'Le logo doit être au format JPG, PNG, GIF ou WEBP.',
+            'logo.max' => 'Le logo ne doit pas dépasser 5 Mo.',
         ]);
 
         $settings = Setting::current();

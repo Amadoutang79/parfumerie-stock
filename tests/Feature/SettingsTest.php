@@ -61,6 +61,7 @@ test('only administrators can access company settings', function () {
 
 test('company settings are validated, cached, and used for sale tax and display', function () {
     $admin = settingsTestAdmin();
+    Storage::fake('public');
 
     $this->actingAs($admin)->put(route('settings.update'), settingsTestValues([
         'city' => 'Dakar',
@@ -72,6 +73,7 @@ test('company settings are validated, cached, and used for sale tax and display'
         'date_format' => 'Y-m-d',
         'primary_color' => '#8B5CF6',
         'tab' => 'preferences',
+        'logo' => UploadedFile::fake()->image('logo.png', 128, 128)->size(4096),
     ]))->assertRedirect(route('settings.index', ['tab' => 'preferences']));
 
     $settings = Setting::current();
@@ -79,6 +81,8 @@ test('company settings are validated, cached, and used for sale tax and display'
         ->and($settings->country)->toBe('SN')
         ->and((float) $settings->vat_rate)->toBe(20.0)
         ->and($settings->primary_color)->toBe('#8B5CF6')
+        ->and($settings->logo_path)->toStartWith('logos/')
+        ->and(Storage::disk('public')->exists($settings->logo_path))->toBeTrue()
         ->and(money(1000))->toBe('1 000 €')
         ->and(company_date('2026-10-06'))->toBe('2026-10-06');
 
@@ -101,12 +105,13 @@ test('company settings are validated, cached, and used for sale tax and display'
         'unit_cost' => 40,
     ]);
 
-    $this->post(route('sales.store'), [
+    $response = $this->post(route('sales.store'), [
         'items' => [['product_id' => $product->id, 'quantity' => 1, 'price' => 1]],
         'payment_method' => 'cash',
-    ])->assertRedirect();
+    ]);
 
     $sale = Sale::firstOrFail();
+    $response->assertRedirect(route('sales.ticket', $sale));
     expect((float) $sale->vat_rate)->toBe(20.0)
         ->and((float) $sale->vat_amount)->toBe(20.0)
         ->and((float) $sale->total)->toBe(120.0);
@@ -114,6 +119,7 @@ test('company settings are validated, cached, and used for sale tax and display'
     $this->get(route('sales.ticket', $sale))
         ->assertOk()
         ->assertSee('Parfumerie Test')
+        ->assertSee(Storage::disk('public')->url($settings->logo_path))
         ->assertSee('TVA (20%)');
 });
 

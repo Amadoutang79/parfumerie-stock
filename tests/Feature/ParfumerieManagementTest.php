@@ -3,6 +3,7 @@
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Models\Setting;
 use App\Models\StockMovement;
 use App\Models\StockBatch;
 use App\Services\StockInventory;
@@ -99,6 +100,9 @@ test('all catalogue and management lists render for an administrator', function 
     }
 
     $this->get(route('sales.create'))->assertSee('Montant remis');
+    $this->get(route('sales.create'))
+        ->assertSee('Scanner avec la caméra')
+        ->assertSee('douchette USB');
     $this->get(route('purchases.create'))->assertSee('Montant payé');
 });
 
@@ -125,6 +129,7 @@ test('brands and categories can be searched and maintained from their catalogues
 
 test('sale ticket is printable and includes transaction details', function () {
     $seller = parfumerieUserWithRole('Vendeur');
+    Setting::current()->update(['company_name' => 'Maison Parfum Test']);
     $sale = Sale::create([
         'reference' => 'VTE-TEST-001',
         'user_id' => $seller->id,
@@ -150,6 +155,7 @@ test('sale ticket is printable and includes transaction details', function () {
         ->assertOk()
         ->assertSee('Imprimer le ticket')
         ->assertSee('VTE-TEST-001')
+        ->assertSee('Maison Parfum Test')
         ->assertSee('Parfum test');
 });
 
@@ -181,18 +187,20 @@ test('sale uses the product price stored by the server, not the submitted cart p
     $seller = parfumerieUserWithRole('Vendeur');
     $product = parfumerieTestProduct();
 
-    $this->actingAs($seller)->post(route('sales.store'), [
+    $response = $this->actingAs($seller)->post(route('sales.store'), [
         'items' => [
             ['product_id' => $product->id, 'quantity' => 1, 'price' => 1],
         ],
         'payment_method' => 'cash',
         'paid_amount' => 35,
-    ])->assertRedirect();
+    ]);
+    $sale = Sale::firstOrFail();
+    $response->assertRedirect(route('sales.ticket', $sale));
 
-    expect((float) Sale::firstOrFail()->total)->toBe(118.0)
-        ->and((float) Sale::firstOrFail()->items()->firstOrFail()->price)->toBe(100.0)
-        ->and((float) Sale::firstOrFail()->paid_amount)->toBe(35.0)
-        ->and((float) Sale::firstOrFail()->change_amount)->toBe(0.0)
+    expect((float) $sale->total)->toBe(118.0)
+        ->and((float) $sale->items()->firstOrFail()->price)->toBe(100.0)
+        ->and((float) $sale->paid_amount)->toBe(35.0)
+        ->and((float) $sale->change_amount)->toBe(0.0)
         ->and($product->fresh()->stock_quantity)->toBe(4);
 });
 

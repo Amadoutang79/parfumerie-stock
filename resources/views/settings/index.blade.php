@@ -238,7 +238,7 @@
                             <img x-show="logoUrl" :src="logoUrl" alt="Aperçu du logo" class="mb-3 h-20 w-20 rounded-xl bg-white object-contain p-2 shadow-sm">
                             <span x-show="!logoUrl" class="mb-3 text-3xl" aria-hidden="true">🖼️</span>
                             <span class="text-sm font-semibold text-slate-800">Choisir un fichier ou le déposer ici</span>
-                            <span class="mt-1 text-xs text-slate-500">JPG, PNG, GIF ou WEBP · 2 Mo maximum</span>
+                            <span class="mt-1 text-xs text-slate-500">JPG, PNG, GIF ou WEBP · 5 Mo maximum</span>
                         </label>
                         @error('logo') <p class="settings-error">{{ $message }}</p> @enderror
                         <button type="submit" form="delete-logo-form" x-show="logoUrl" x-cloak

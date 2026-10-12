@@ -184,7 +184,7 @@ class SaleController extends Controller
             return $sale;
         });
 
-        return redirect()->route('sales.show', $sale)->with('success', 'Vente enregistrée.');
+        return redirect()->route('sales.ticket', $sale)->with('success', 'Vente enregistrée.');
     }
 
     public function show(Sale $sale)
@@ -198,7 +198,10 @@ class SaleController extends Controller
     {
         $sale->load(['items', 'customer', 'user']);
 
-        return view('sales.ticket', compact('sale'));
+        return view('sales.ticket', [
+            'sale' => $sale,
+            'settings' => Setting::current(),
+        ]);
     }
 
     public function destroy(Sale $sale)
