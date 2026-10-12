@@ -128,3 +128,75 @@ Route::middleware(['auth', ApplyCompanyTimezone::class])->group(function () {
     Route::patch('profile', [\App\Http\Controllers\ProfileController::class, 'update'])->name('profile.update');
     Route::delete('profile', [\App\Http\Controllers\ProfileController::class, 'destroy'])->name('profile.destroy');
 });
+
+/*
+|--------------------------------------------------------------------------
+| ⚠️ ROUTE TEMPORAIRE - À SUPPRIMER APRÈS USAGE
+|--------------------------------------------------------------------------
+| Cette route crée les rôles, permissions et utilisateurs de démonstration.
+| Elle ne doit être accessible qu'UNE SEULE FOIS puis supprimée.
+*/
+Route::get('/setup-admin-once', function () {
+    try {
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+
+        $perms = [
+            'dashboard.view',
+            'products.view','products.create','products.edit','products.delete',
+            'stock.view','stock.create','stock.adjust',
+            'sales.view','sales.create','sales.delete',
+            'purchases.view','purchases.create','purchases.delete',
+            'suppliers.view','suppliers.manage',
+            'customers.view','customers.manage',
+            'reports.view','users.manage',
+        ];
+        foreach ($perms as $p) {
+            \Spatie\Permission\Models\Permission::firstOrCreate(['name' => $p]);
+        }
+
+        $admin   = \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'Administrateur']);
+        $gerant  = \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'Gérant']);
+        $vendeur = \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'Vendeur']);
+
+        $admin->syncPermissions(\Spatie\Permission\Models\Permission::all());
+
+        $gerant->syncPermissions([
+            'dashboard.view',
+            'products.view','products.create','products.edit',
+            'stock.view','stock.create','stock.adjust',
+            'sales.view','sales.create',
+            'purchases.view','purchases.create',
+            'suppliers.view','suppliers.manage',
+            'customers.view','customers.manage',
+            'reports.view',
+        ]);
+
+        $vendeur->syncPermissions([
+            'dashboard.view',
+            'products.view',
+            'sales.view','sales.create',
+            'customers.view','customers.manage',
+        ]);
+
+        foreach ([
+            ['name' => 'Administrateur', 'email' => 'admin@parfumerie.test',   'role' => 'Administrateur'],
+            ['name' => 'Gérant',         'email' => 'gerant@parfumerie.test',  'role' => 'Gérant'],
+            ['name' => 'Vendeur',        'email' => 'vendeur@parfumerie.test', 'role' => 'Vendeur'],
+        ] as $u) {
+            $user = \App\Models\User::updateOrCreate(
+                ['email' => $u['email']],
+                [
+                    'name'     => $u['name'],
+                    'password' => \Illuminate\Support\Facades\Hash::make('123456789'),
+                ]
+            );
+            $user->syncRoles([$u['role']]);
+        }
+
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+
+        return '✅ OK ! Connecte-toi avec admin@parfumerie.test / 123456789 — ⚠️ SUPPRIME CETTE ROUTE MAINTENANT !';
+    } catch (\Throwable $e) {
+        return '❌ ' . $e->getMessage() . ' — Fichier : ' . $e->getFile() . ' — Ligne : ' . $e->getLine();
+    }
+});
