@@ -116,6 +116,7 @@ test('all catalogue and management lists render for an administrator', function 
 
     foreach ([
         route('products.index'),
+        route('products.create'),
         route('brands.index'),
         route('categories.index'),
         route('stock.index'),

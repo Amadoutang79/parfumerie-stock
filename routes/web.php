@@ -32,12 +32,14 @@ Route::middleware(['auth', ApplyCompanyTimezone::class])->group(function () {
     // Parfums
     Route::middleware('can:products.view')->group(function () {
         Route::get('products', [ProductController::class, 'index'])->name('products.index');
-        Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
     });
     Route::middleware('can:products.create')->group(function () {
         Route::get('products/create', [ProductController::class, 'create'])->name('products.create');
         Route::post('products', [ProductController::class, 'store'])->name('products.store');
     });
+    Route::get('products/{product}', [ProductController::class, 'show'])
+        ->middleware('can:products.view')
+        ->name('products.show');
     Route::middleware('can:products.edit')->group(function () {
         Route::get('products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
         Route::put('products/{product}', [ProductController::class, 'update'])->name('products.update');
