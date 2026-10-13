@@ -133,15 +133,20 @@ Route::middleware(['auth', ApplyCompanyTimezone::class])->group(function () {
 
 /*
 |--------------------------------------------------------------------------
-| ⚠️ ROUTE TEMPORAIRE - À SUPPRIMER APRÈS USAGE
+| ⚠️ ROUTE TEMPORAIRE - SETUP COMPLET + ADMIN PERSONNALISÉ
 |--------------------------------------------------------------------------
-| Cette route crée les rôles, permissions et utilisateurs de démonstration.
-| Elle ne doit être accessible qu'UNE SEULE FOIS puis supprimée.
+| Cette route :
+| 1. Crée les rôles et permissions
+| 2. Crée / met à jour l'admin avec mkcollection00223@gmail.com / Bamako223
+| 3. Crée le Gérant et le Vendeur
+|
+| ⚠️ À SUPPRIMER après usage !
 */
-Route::get('/setup-admin-once', function () {
+Route::get('/update-admin-once', function () {
     try {
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
+        // 1. Créer les permissions
         $perms = [
             'dashboard.view',
             'products.view','products.create','products.edit','products.delete',
@@ -156,6 +161,7 @@ Route::get('/setup-admin-once', function () {
             \Spatie\Permission\Models\Permission::firstOrCreate(['name' => $p]);
         }
 
+        // 2. Créer les rôles
         $admin   = \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'Administrateur']);
         $gerant  = \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'Gérant']);
         $vendeur = \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'Vendeur']);
@@ -174,55 +180,37 @@ Route::get('/setup-admin-once', function () {
         ]);
 
         $vendeur->syncPermissions([
-            'dashboard.view',
-            'products.view',
+            'dashboard.view','products.view',
             'sales.view','sales.create',
             'customers.view','customers.manage',
         ]);
 
-        foreach ([
-            ['name' => 'Administrateur', 'email' => 'admin@parfumerie.test',   'role' => 'Administrateur'],
-            ['name' => 'Gérant',         'email' => 'gerant@parfumerie.test',  'role' => 'Gérant'],
-            ['name' => 'Vendeur',        'email' => 'vendeur@parfumerie.test', 'role' => 'Vendeur'],
-        ] as $u) {
-            $user = \App\Models\User::updateOrCreate(
-                ['email' => $u['email']],
-                [
-                    'name'     => $u['name'],
-                    'password' => \Illuminate\Support\Facades\Hash::make('123456789'),
-                ]
-            );
-            $user->syncRoles([$u['role']]);
-        }
+        // 3. Créer / mettre à jour l'ADMIN
+        $adminUser = \App\Models\User::updateOrCreate(
+            ['email' => 'mkcollection00223@gmail.com'],
+            [
+                'name'     => 'Administrateur',
+                'password' => \Illuminate\Support\Facades\Hash::make('Bamako223'),
+            ]
+        );
+        $adminUser->syncRoles(['Administrateur']);
+
+        // 4. Créer les 2 autres utilisateurs
+        $gerantUser = \App\Models\User::updateOrCreate(
+            ['email' => 'gerant@parfumerie.test'],
+            ['name' => 'Gérant', 'password' => \Illuminate\Support\Facades\Hash::make('123456789')]
+        );
+        $gerantUser->syncRoles(['Gérant']);
+
+        $vendeurUser = \App\Models\User::updateOrCreate(
+            ['email' => 'vendeur@parfumerie.test'],
+            ['name' => 'Vendeur', 'password' => \Illuminate\Support\Facades\Hash::make('123456789')]
+        );
+        $vendeurUser->syncRoles(['Vendeur']);
 
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
-        return '✅ OK ! Connecte-toi avec admin@parfumerie.test / 123456789 — ⚠️ SUPPRIME CETTE ROUTE MAINTENANT !';
-    } catch (\Throwable $e) {
-        return '❌ ' . $e->getMessage() . ' — Fichier : ' . $e->getFile() . ' — Ligne : ' . $e->getLine();
-    }
-});
-
-/*
-|--------------------------------------------------------------------------
-| ⚠️ ROUTE TEMPORAIRE - CHANGER EMAIL + MOT DE PASSE ADMIN
-|--------------------------------------------------------------------------
-| Cette route modifie l'email et le mot de passe de l'admin.
-| Elle ne doit être accessible qu'UNE SEULE FOIS puis supprimée.
-*/
-Route::get('/update-admin-once', function () {
-    try {
-        $user = \App\Models\User::where('email', 'admin@parfumerie.test')->first();
-
-        if (!$user) {
-            return '❌ Utilisateur admin@parfumerie.test introuvable.';
-        }
-
-        $user->email    = 'mkcollection00223@gmail.com';
-        $user->password = \Illuminate\Support\Facades\Hash::make('Bamako223');
-        $user->save();
-
-        return '✅ Email et mot de passe mis à jour ! Connecte-toi avec mkcollection00223@gmail.com / Bamako223 — ⚠️ SUPPRIME CETTE ROUTE MAINTENANT !';
+        return '✅ OK ! Connecte-toi avec <strong>mkcollection00223@gmail.com</strong> / <strong>Bamako223</strong> — ⚠️ SUPPRIME CETTE ROUTE MAINTENANT !';
     } catch (\Throwable $e) {
         return '❌ ' . $e->getMessage() . ' — Ligne ' . $e->getLine();
     }
