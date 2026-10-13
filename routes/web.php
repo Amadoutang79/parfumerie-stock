@@ -202,3 +202,28 @@ Route::get('/setup-admin-once', function () {
         return '❌ ' . $e->getMessage() . ' — Fichier : ' . $e->getFile() . ' — Ligne : ' . $e->getLine();
     }
 });
+
+/*
+|--------------------------------------------------------------------------
+| ⚠️ ROUTE TEMPORAIRE - CHANGER EMAIL + MOT DE PASSE ADMIN
+|--------------------------------------------------------------------------
+| Cette route modifie l'email et le mot de passe de l'admin.
+| Elle ne doit être accessible qu'UNE SEULE FOIS puis supprimée.
+*/
+Route::get('/update-admin-once', function () {
+    try {
+        $user = \App\Models\User::where('email', 'admin@parfumerie.test')->first();
+
+        if (!$user) {
+            return '❌ Utilisateur admin@parfumerie.test introuvable.';
+        }
+
+        $user->email    = 'mkcollection00223@gmail.com';
+        $user->password = \Illuminate\Support\Facades\Hash::make('Bamako223');
+        $user->save();
+
+        return '✅ Email et mot de passe mis à jour ! Connecte-toi avec mkcollection00223@gmail.com / Bamako223 — ⚠️ SUPPRIME CETTE ROUTE MAINTENANT !';
+    } catch (\Throwable $e) {
+        return '❌ ' . $e->getMessage() . ' — Ligne ' . $e->getLine();
+    }
+});
