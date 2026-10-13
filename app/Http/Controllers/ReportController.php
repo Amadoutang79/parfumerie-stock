@@ -18,8 +18,15 @@ class ReportController extends Controller
             ->groupBy('day')->orderBy('day')->get();
 
         // Ventes par mois
-        $salesByMonth = Sale::selectRaw("strftime('%Y-%m', sold_at) as month, SUM(total) as total, SUM(profit) as profit, COUNT(*) as count")
-            ->groupBy('month')->orderByDesc('month')->limit(12)->get();
+        $monthExpression = match (DB::connection()->getDriverName()) {
+            'sqlite' => "strftime('%Y-%m', sold_at)",
+            'pgsql' => "TO_CHAR(sold_at, 'YYYY-MM')",
+            'mysql', 'mariadb' => "DATE_FORMAT(sold_at, '%Y-%m')",
+            'sqlsrv' => "FORMAT(sold_at, 'yyyy-MM')",
+            default => throw new \RuntimeException('Monthly sales reports are not supported for this database driver.'),
+        };
+        $salesByMonth = Sale::selectRaw("$monthExpression as month, SUM(total) as total, SUM(profit) as profit, COUNT(*) as count")
+            ->groupByRaw($monthExpression)->orderByDesc('month')->limit(12)->get();
 
         // Top produits
         $topProducts = SaleItem::selectRaw('product_name, SUM(quantity) as qty, SUM(subtotal) as revenue')

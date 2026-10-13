@@ -60,6 +60,37 @@ test('authorized staff can open the dashboard and SQLite reports and download bo
     $this->get(route('reports.stock.export'))->assertOk();
 });
 
+test('reports aggregate sales by month using the configured database driver', function () {
+    $admin = parfumerieUserWithRole('Administrateur');
+
+    foreach ([100, 50] as $index => $total) {
+        Sale::create([
+            'reference' => 'VTE-REPORT-'.$index,
+            'subtotal' => $total,
+            'discount' => 0,
+            'vat_rate' => 0,
+            'vat_amount' => 0,
+            'total' => $total,
+            'profit' => $total / 2,
+            'payment_method' => 'cash',
+            'paid_amount' => $total,
+            'change_amount' => 0,
+            'sold_at' => now()->startOfMonth()->addDays($index),
+        ]);
+    }
+
+    $this->actingAs($admin)->get(route('reports.index'))
+        ->assertOk()
+        ->assertViewHas('salesByMonth', function ($salesByMonth) {
+            $month = $salesByMonth->firstWhere('month', now()->format('Y-m'));
+
+            return $month !== null
+                && (int) $month->count === 2
+                && (float) $month->total === 150.0
+                && (float) $month->profit === 75.0;
+        });
+});
+
 test('welcome page describes the current application accurately', function () {
     $this->get(route('home'))
         ->assertOk()
