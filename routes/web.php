@@ -215,3 +215,30 @@ Route::get('/update-admin-once', function () {
         return '❌ ' . $e->getMessage() . ' — Ligne ' . $e->getLine();
     }
 });
+
+/*
+|--------------------------------------------------------------------------
+| ⚠️ ROUTE TEMPORAIRE - CHANGER EMAIL + MOT DE PASSE ADMIN (FINAL)
+|--------------------------------------------------------------------------
+| ⚠️ À SUPPRIMER IMMÉDIATEMENT APRÈS USAGE !
+*/
+Route::get('/update-admin-final', function () {
+    try {
+        // Cherche l'admin actuel (quel que soit son ancien email)
+        $user = \App\Models\User::where('email', 'mkcollection00223@gmail.com')->first() 
+             ?? \App\Models\User::where('email', 'admin@parfumerie.test')->first() 
+             ?? \App\Models\User::first();
+
+        if (!$user) {
+            return '❌ Aucun utilisateur trouvé en base.';
+        }
+
+        $user->email    = 'amadoutangara91@gmail.com';
+        $user->password = \Illuminate\Support\Facades\Hash::make('123456789');
+        $user->save();
+
+        return '✅ OK ! Connecte-toi avec <strong>amadoutangara91@gmail.com</strong> / <strong>123456789</strong> — ⚠️ SUPPRIME CETTE ROUTE MAINTENANT !';
+    } catch (\Throwable $e) {
+        return '❌ ' . $e->getMessage() . ' — Ligne ' . $e->getLine();
+    }
+});
